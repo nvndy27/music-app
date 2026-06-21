@@ -1,4 +1,8 @@
 const AUTH_API_BASE_URL = window.MUSIC_API_BASE_URL || "https://music-app-backend-cfue.onrender.com/api";
+const SUPABASE_CLIENT_SOURCES = [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
+  "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js",
+];
 
 const authScreen = document.querySelector("#authScreen");
 const authForm = document.querySelector("#authForm");
@@ -17,6 +21,46 @@ const profileButton = document.querySelector("#profileButton");
 
 let supabase = null;
 let isRegistering = false;
+
+function loadScript(source, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    const timeoutId = window.setTimeout(() => {
+      script.remove();
+      reject(new Error("Timed out while loading the authentication client."));
+    }, timeoutMs);
+
+    script.src = source;
+    script.async = true;
+    script.onload = () => {
+      window.clearTimeout(timeoutId);
+      resolve();
+    };
+    script.onerror = () => {
+      window.clearTimeout(timeoutId);
+      script.remove();
+      reject(new Error("Could not load the authentication client."));
+    };
+    document.head.append(script);
+  });
+}
+
+async function loadSupabaseClient() {
+  if (window.supabase?.createClient) return;
+
+  let lastError;
+  for (const source of SUPABASE_CLIENT_SOURCES) {
+    try {
+      await loadScript(source);
+      if (window.supabase?.createClient) return;
+      lastError = new Error("The authentication client loaded with an invalid response.");
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Could not load the authentication client.");
+}
 
 function setMessage(message = "", isError = false) {
   authMessage.textContent = message;
@@ -92,15 +136,14 @@ function showAuthenticated(user) {
 
 async function initializeAuth() {
   try {
-    const response = await fetch(`${AUTH_API_BASE_URL}/auth/config`);
+    const [response] = await Promise.all([
+      fetch(`${AUTH_API_BASE_URL}/auth/config`),
+      loadSupabaseClient(),
+    ]);
     const payload = await response.json();
 
     if (!response.ok || !payload.data?.url || !payload.data?.publishableKey) {
       throw new Error(payload.message || "Supabase Auth is not configured.");
-    }
-
-    if (!window.supabase?.createClient) {
-      throw new Error("Supabase client script did not load.");
     }
 
     supabase = window.supabase.createClient(payload.data.url, payload.data.publishableKey, {
