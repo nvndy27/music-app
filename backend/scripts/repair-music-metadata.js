@@ -34,6 +34,26 @@ const fixes = [
     from: { artist: "Local library", title: "MONTAGEM ELDER (SUPER SLOWED) [YUTA x MAKI]" },
     to: { artist: "DJ Samir, Nulteex, John Bis.T, RXDXVIL", title: "MONTAGEM ELDER (Super Slowed) [YUTA x MAKI]" },
   },
+  {
+    from: { artist: "wine pon you", title: "sped up" },
+    to: { artist: "90degrees, Pacey", title: "wine pon you (sped up)" },
+  },
+  {
+    from: { artist: "", title: "Where is your sword Don't Need it (Slowed Down) Vinland Saga x Children" },
+    to: { artist: "Sarahred", title: "Where is your sword? Don't need it (Slowed Down)" },
+  },
+  {
+    from: { artist: "Girl You Loud", title: "slowed & reverb" },
+    to: { artist: "Self Made", title: "Girl You Loud (Slowed & Reverb)" },
+  },
+  {
+    from: { artist: "Local library", title: "shadows (Slowed Reverb muffled)" },
+    to: { artist: "Pastel Ghost", title: "Shadows (Slowed, Reverb, Muffled)" },
+  },
+  {
+    from: { artist: "Leviano, Thiago Sub", title: "has to be u [Bass Boosted]" },
+    to: { artist: "Leviano, Thiago Sub", title: "has to be u (Bass Boosted)" },
+  },
 ];
 
 async function request(url, options = {}) {
