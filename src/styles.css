@@ -55,6 +55,12 @@ body {
     #121212;
 }
 
+/* The auth overlay defines a display mode, so the browser's low-specificity
+   [hidden] default is not enough to hide it after guest/authenticated entry. */
+.auth-screen[hidden] {
+  display: none;
+}
+
 .auth-card {
   width: min(100%, 430px);
   border: 1px solid rgba(255, 255, 255, 0.1);

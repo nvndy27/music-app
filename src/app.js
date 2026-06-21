@@ -11,6 +11,7 @@ const playerCover = document.querySelector("#playerCover");
 const playerPlay = document.querySelector("#playerPlay");
 const heroPlay = document.querySelector("#heroPlay");
 const likeButton = document.querySelector("#likeButton");
+const createPlaylistButton = document.querySelector('[aria-label="Create playlist"]');
 const progressInput = document.querySelector("#progressInput");
 const elapsedTime = document.querySelector("#elapsedTime");
 const durationTime = document.querySelector("#durationTime");
@@ -21,6 +22,22 @@ let currentTrackId = null;
 let isPlaying = false;
 let progressSeconds = 0;
 let timerId = null;
+
+function isGuestSession() {
+  try {
+    return JSON.parse(window.localStorage.getItem("pulse-music-auth-session") || "null")?.mode === "guest";
+  } catch (error) {
+    return false;
+  }
+}
+
+function requireAccount(action) {
+  if (!isGuestSession()) return true;
+
+  console.info("[guest] blocked action", { action });
+  window.alert(`${action} is available after you sign in.`);
+  return false;
+}
 
 function icon(name) {
   return `<svg><use href="#icon-${name}"></use></svg>`;
@@ -340,7 +357,12 @@ playerPlay.addEventListener("click", togglePlay);
 heroPlay.addEventListener("click", togglePlay);
 
 likeButton.addEventListener("click", () => {
+  if (!requireAccount("Saving tracks")) return;
   likeButton.classList.toggle("active");
+});
+
+createPlaylistButton?.addEventListener("click", () => {
+  requireAccount("Creating playlists");
 });
 
 progressInput.addEventListener("input", () => {
