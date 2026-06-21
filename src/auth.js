@@ -28,6 +28,38 @@ function setBusy(isBusy) {
   authSwitch.disabled = isBusy;
 }
 
+function clearOAuthUrl() {
+  const url = new URL(window.location.href);
+  const authParams = [
+    "code",
+    "error",
+    "error_code",
+    "error_description",
+    "access_token",
+    "refresh_token",
+    "expires_in",
+    "token_type",
+    "type",
+  ];
+
+  let changed = false;
+  authParams.forEach((param) => {
+    if (url.searchParams.has(param)) {
+      url.searchParams.delete(param);
+      changed = true;
+    }
+  });
+
+  if (window.location.hash) {
+    url.hash = "";
+    changed = true;
+  }
+
+  if (changed) {
+    window.history.replaceState({}, document.title, url.pathname + url.search);
+  }
+}
+
 function setMode(registering) {
   isRegistering = registering;
   authNameField.hidden = !registering;
@@ -54,12 +86,18 @@ function showAuthenticated(user) {
 }
 
 async function initializeAuth() {
+  setBusy(true);
+
   try {
     const response = await fetch(`${AUTH_API_BASE_URL}/auth/config`);
     const payload = await response.json();
 
     if (!response.ok || !payload.data?.url || !payload.data?.publishableKey) {
       throw new Error(payload.message || "Supabase Auth is not configured.");
+    }
+
+    if (!window.supabase?.createClient) {
+      throw new Error("Supabase client script did not load.");
     }
 
     supabase = window.supabase.createClient(payload.data.url, payload.data.publishableKey, {
@@ -71,14 +109,38 @@ async function initializeAuth() {
         storageKey: "pulse-music-auth",
       },
     });
-    const { data: { session } } = await supabase.auth.getSession();
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has("error_description")) {
+      throw new Error(searchParams.get("error_description"));
+    }
 
-    if (session?.user) showAuthenticated(session.user);
+    if (searchParams.has("code")) {
+      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+      if (error) throw error;
+      clearOAuthUrl();
+    }
+
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    if (session?.user) {
+      showAuthenticated(session.user);
+    } else {
+      authScreen.hidden = false;
+      document.body.classList.add("auth-pending");
+      setBusy(false);
+    }
 
     supabase.auth.onAuthStateChange((_event, sessionState) => {
-      if (sessionState?.user) showAuthenticated(sessionState.user);
+      if (sessionState?.user) {
+        showAuthenticated(sessionState.user);
+      }
     });
   } catch (error) {
+    authScreen.hidden = false;
+    document.body.classList.add("auth-pending");
+    setBusy(false);
+    clearOAuthUrl();
     setMessage(`Authentication is not ready yet: ${error.message || "check the Supabase setup."}`, true);
   }
 }
@@ -105,6 +167,11 @@ authForm.addEventListener("submit", async (event) => {
 
     if (result.error) throw result.error;
 
+    if (result.data.session?.user) {
+      showAuthenticated(result.data.session.user);
+      return;
+    }
+
     if (isRegistering && !result.data.session) {
       setMessage("Check your email to confirm the new account, then sign in.");
     }
@@ -119,15 +186,19 @@ googleSignIn.addEventListener("click", async () => {
   if (!supabase) return setMessage("Authentication is not available yet.", true);
 
   setBusy(true);
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: window.location.origin + window.location.pathname,
-      queryParams: { prompt: "select_account" },
-    },
-  });
+  setMessage();
 
-  if (error) {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + window.location.pathname,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+
+    if (error) throw error;
+  } catch (error) {
     setBusy(false);
     setMessage(error.message || "Google sign-in could not start.", true);
   }
