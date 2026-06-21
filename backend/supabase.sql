@@ -5,6 +5,7 @@ create table if not exists public.tracks (
   title text not null,
   artist text not null,
   album text,
+  genre text,
   duration integer not null check (duration > 0),
   audio_url text,
   cover_image_url text,
@@ -12,6 +13,12 @@ create table if not exists public.tracks (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Safe for projects that ran an earlier version of this setup script.
+alter table public.tracks add column if not exists genre text;
+
+create index if not exists tracks_created_at_idx on public.tracks (created_at desc);
+create index if not exists tracks_genre_idx on public.tracks (genre);
 
 create or replace function public.set_updated_at()
 returns trigger

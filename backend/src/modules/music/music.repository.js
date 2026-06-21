@@ -10,6 +10,7 @@ function mapTrack(row) {
     title: row.title,
     artist: row.artist,
     album: row.album,
+    genre: row.genre,
     duration: row.duration,
     audioUrl: row.audio_url,
     coverImageUrl: row.cover_image_url,
@@ -25,6 +26,7 @@ function toTrackRow(data) {
   if (data.title !== undefined) row.title = data.title;
   if (data.artist !== undefined) row.artist = data.artist;
   if (data.album !== undefined) row.album = data.album || null;
+  if (data.genre !== undefined) row.genre = data.genre || null;
   if (data.duration !== undefined) row.duration = data.duration;
   if (data.audioUrl !== undefined) row.audio_url = data.audioUrl || null;
   if (data.coverImageUrl !== undefined) row.cover_image_url = data.coverImageUrl || null;
@@ -41,7 +43,7 @@ async function findTracks({ search } = {}) {
 
   if (normalizedSearch) {
     const value = normalizedSearch.replace(/[%*]/g, "");
-    params.or = `(title.ilike.*${value}*,artist.ilike.*${value}*,album.ilike.*${value}*)`;
+    params.or = `(title.ilike.*${value}*,artist.ilike.*${value}*,album.ilike.*${value}*,genre.ilike.*${value}*)`;
   }
 
   const rows = await supabaseFetch("/rest/v1/tracks", { params });

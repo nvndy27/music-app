@@ -8,6 +8,7 @@ const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   adminUploadKey: process.env.ADMIN_UPLOAD_KEY || "dev-admin-key",
   supabaseUrl: process.env.SUPABASE_URL || "",
+  supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY || "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseAudioBucket: process.env.SUPABASE_AUDIO_BUCKET || "audio",
   supabaseCoverBucket: process.env.SUPABASE_COVER_BUCKET || "covers",

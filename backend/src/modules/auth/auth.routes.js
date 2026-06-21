@@ -4,6 +4,7 @@ const { requireAuth } = require("../../middlewares/auth.middleware");
 
 const router = express.Router();
 
+router.get("/config", controller.config);
 router.post("/register", controller.register);
 router.post("/login", controller.login);
 router.get("/me", requireAuth, controller.me);

@@ -355,4 +355,8 @@ progressInput.addEventListener("input", () => {
   elapsedTime.textContent = formatTime(progressSeconds);
 });
 
-loadTracks();
+if (document.body.classList.contains("authenticated")) {
+  loadTracks();
+} else {
+  window.addEventListener("music:authenticated", loadTracks, { once: true });
+}

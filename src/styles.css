@@ -37,6 +37,142 @@ body {
   font-size: 16px;
 }
 
+.auth-pending {
+  overflow: hidden;
+}
+
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 15% 12%, rgba(30, 215, 96, 0.16), transparent 30%),
+    radial-gradient(circle at 86% 82%, rgba(104, 72, 255, 0.22), transparent 34%),
+    #121212;
+}
+
+.auth-card {
+  width: min(100%, 430px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(31, 31, 31, 0.96);
+  box-shadow: var(--shadow-heavy);
+  padding: 34px;
+}
+
+.auth-brand-mark {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.auth-eyebrow {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.auth-card h1 {
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.auth-copy {
+  margin-top: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.auth-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.auth-field input {
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  outline: 0;
+  background: #121212;
+  color: var(--text-base);
+  padding: 0 14px;
+}
+
+.auth-field input:focus {
+  border-color: var(--text-base);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.16);
+}
+
+.auth-message {
+  min-height: 20px;
+  margin-top: 14px;
+  color: var(--accent);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auth-message.error {
+  color: #f3727f;
+}
+
+.auth-submit,
+.google-button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.auth-submit {
+  background: var(--accent);
+  color: #000;
+}
+
+.google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-base);
+}
+
+.google-button span {
+  color: #4285f4;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.auth-submit:disabled,
+.google-button:disabled,
+.auth-switch:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.auth-switch {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 button,
 input {
   font: inherit;

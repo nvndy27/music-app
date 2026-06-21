@@ -1,7 +1,5 @@
-const jwt = require("jsonwebtoken");
-const env = require("../config/env");
 const { ApiError } = require("../shared/http");
-const userService = require("../modules/users/user.service");
+const { getSupabaseUser } = require("../lib/supabase");
 
 async function requireAuth(req, res, next) {
   try {
@@ -12,22 +10,17 @@ async function requireAuth(req, res, next) {
       throw new ApiError(401, "Authentication token is required");
     }
 
-    const payload = jwt.verify(token, env.jwtSecret);
-    const user = await userService.findById(payload.sub);
-
-    if (!user) {
-      throw new ApiError(401, "User no longer exists");
-    }
-
-    req.user = user;
+    const user = await getSupabaseUser(token);
+    req.user = {
+      id: user.id,
+      email: user.email,
+      displayName: user.user_metadata?.display_name || user.user_metadata?.full_name || user.email,
+      avatarUrl: user.user_metadata?.avatar_url || null,
+      role: user.app_metadata?.role || "listener",
+    };
     next();
   } catch (error) {
-    if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") {
-      next(new ApiError(401, "Invalid or expired token"));
-      return;
-    }
-
-    next(error);
+    next(new ApiError(401, "Invalid or expired Supabase session"));
   }
 }
 

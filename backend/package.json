@@ -6,6 +6,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "music:import": "node scripts/import-music.js",
+    "music:import:dry-run": "node scripts/import-music.js --dry-run",
+    "music:prune": "node scripts/prune-music.js",
+    "music:prune:apply": "node scripts/prune-music.js --apply",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

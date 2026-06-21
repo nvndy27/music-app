@@ -23,7 +23,7 @@ Backend API for the personal music web app. The music catalog now uses Supabase 
 
 The SQL creates:
 
-- `tracks` table
+- `tracks` table (including optional `genre`, used by the frontend filters)
 - `increment_track_plays()` RPC
 - public `audio` bucket
 - public `covers` bucket
@@ -41,12 +41,32 @@ JWT_EXPIRES_IN=7d
 
 ADMIN_UPLOAD_KEY=dev-admin-key
 SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_your-public-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 SUPABASE_AUDIO_BUCKET=audio
 SUPABASE_COVER_BUCKET=covers
 ```
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` private. Do not put it in frontend code.
+`SUPABASE_PUBLISHABLE_KEY` is intentionally exposed to the browser by the auth
+configuration endpoint; it is safe to expose and is required for Supabase Auth.
+
+## User Authentication
+
+The frontend shows a sign-in screen before loading the catalog. It supports
+email/password registration, email/password sign-in, session persistence on the
+current browser, and Google OAuth through Supabase Auth.
+
+For Google sign-in, configure both services:
+
+1. In Google Cloud, create a Web OAuth client. Add the app origin (for example
+   `http://localhost:5500`) under Authorized JavaScript origins. Add
+   `https://<project-ref>.supabase.co/auth/v1/callback` under Authorized redirect URIs.
+2. In Supabase Dashboard, open Authentication > Providers > Google, enable it,
+   and paste that client ID and secret.
+3. In Supabase Dashboard, open Authentication > URL Configuration. Set your
+   app URL as Site URL and add the same URL to Redirect URLs. The browser uses
+   its current origin as the callback destination.
 
 ## Run
 
@@ -61,6 +81,16 @@ API base URL:
 ```text
 http://localhost:4000/api
 ```
+
+After filling in your Supabase credentials and running the SQL, verify the
+connection with:
+
+```bash
+curl http://localhost:4000/api/health/supabase
+```
+
+It returns a successful response only when the project URL/key are valid and
+the `tracks` table can be read.
 
 ## Music Endpoints
 

@@ -60,7 +60,32 @@ function getPublicStorageUrl(bucket, path) {
   return `${baseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
 }
 
+async function checkSupabaseConnection() {
+  const rows = await supabaseFetch("/rest/v1/tracks", {
+    params: {
+      select: "id",
+      limit: "1",
+    },
+  });
+
+  return {
+    connected: true,
+    projectUrl: env.supabaseUrl,
+    tracksTableReachable: Array.isArray(rows),
+  };
+}
+
+async function getSupabaseUser(accessToken) {
+  return supabaseFetch("/auth/v1/user", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 module.exports = {
   supabaseFetch,
   getPublicStorageUrl,
+  checkSupabaseConnection,
+  getSupabaseUser,
 };
