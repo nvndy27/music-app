@@ -1,4 +1,11 @@
-const AUTH_API_BASE_URL = window.MUSIC_API_BASE_URL || "https://music-app-backend-cfue.onrender.com/api";
+const SESSION_STORAGE_KEY = "pulse-music-auth-session";
+// Supabase publishable keys are intended to run in the browser. Keeping this
+// public configuration with the static app avoids making sign-in depend on a
+// separate backend deployment being awake or reachable.
+const SUPABASE_AUTH_CONFIG = {
+  url: "https://ijdyeiamfqimpchlnufd.supabase.co",
+  publishableKey: "sb_publishable_kd0xKpOFrcWJ35CQBUlbiw_72QBurBj",
+};
 const SUPABASE_CLIENT_SOURCES = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
   "https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js",
@@ -21,8 +28,18 @@ const googleSignIn = document.querySelector("#googleSignIn");
 const profileButton = document.querySelector("#profileButton");
 
 let supabase = null;
+let supabasePromise = null;
 let isRegistering = false;
 let guestAccess = false;
+let authSubscription = null;
+
+function logAuth(action, details = {}) {
+  console.info("[auth]", action, details);
+}
+
+function authError(action, error) {
+  console.error("[auth]", action, error);
+}
 
 function loadScript(source, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -64,15 +81,15 @@ async function loadSupabaseClient() {
   throw lastError || new Error("Could not load the authentication client.");
 }
 
-async function fetchAuthConfig() {
-  const response = await fetch(`${AUTH_API_BASE_URL}/auth/config`);
-  const payload = await response.json();
-
-  if (!response.ok || !payload.data?.url || !payload.data?.publishableKey) {
-    throw new Error(payload.message || "Supabase Auth is not configured.");
+function getAuthConfig() {
+  if (window.MUSIC_SUPABASE_URL && window.MUSIC_SUPABASE_PUBLISHABLE_KEY) {
+    return {
+      url: window.MUSIC_SUPABASE_URL,
+      publishableKey: window.MUSIC_SUPABASE_PUBLISHABLE_KEY,
+    };
   }
 
-  return payload.data;
+  return SUPABASE_AUTH_CONFIG;
 }
 
 function setMessage(message = "", isError = false) {
@@ -84,23 +101,14 @@ function setBusy(isBusy) {
   authSubmit.disabled = isBusy;
   googleSignIn.disabled = isBusy;
   authSwitch.disabled = isBusy;
+  // Skip login deliberately stays enabled so a slow or failed network request never traps the user.
 }
 
 function clearOAuthUrl() {
   const url = new URL(window.location.href);
-  const authParams = [
-    "code",
-    "error",
-    "error_code",
-    "error_description",
-    "access_token",
-    "refresh_token",
-    "expires_in",
-    "token_type",
-    "type",
-  ];
-
+  const authParams = ["code", "error", "error_code", "error_description", "access_token", "refresh_token", "expires_in", "token_type", "type"];
   let changed = false;
+
   authParams.forEach((param) => {
     if (url.searchParams.has(param)) {
       url.searchParams.delete(param);
@@ -113,9 +121,7 @@ function clearOAuthUrl() {
     changed = true;
   }
 
-  if (changed) {
-    window.history.replaceState({}, document.title, url.pathname + url.search);
-  }
+  if (changed) window.history.replaceState({}, document.title, url.pathname + url.search);
 }
 
 function setMode(registering) {
@@ -123,10 +129,10 @@ function setMode(registering) {
   authNameField.hidden = !registering;
   authName.required = registering;
   authPassword.autocomplete = registering ? "new-password" : "current-password";
-  authEmail.type = registering ? "email" : "text";
-  authEmail.autocomplete = registering ? "email" : "username";
-  authEmail.placeholder = registering ? "you@example.com" : "username";
-  if (authEmailLabel) authEmailLabel.textContent = registering ? "Email" : "Username";
+  authEmail.type = "email";
+  authEmail.autocomplete = "email";
+  authEmail.placeholder = "you@example.com";
+  if (authEmailLabel) authEmailLabel.textContent = "Email";
   authTitle.textContent = registering ? "Create your account" : "Welcome back";
   authCopy.textContent = registering
     ? "Save your library and keep listening across devices."
@@ -138,7 +144,7 @@ function setMode(registering) {
 
 function getStoredSession() {
   try {
-    const raw = window.localStorage.getItem("pulse-music-auth-session");
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     return null;
@@ -148,171 +154,199 @@ function getStoredSession() {
 function setStoredSession(session) {
   try {
     if (!session) {
-      window.localStorage.removeItem("pulse-music-auth-session");
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
-
-    window.localStorage.setItem("pulse-music-auth-session", JSON.stringify(session));
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch (error) {
-    // Storage is best-effort only.
+    authError("session-storage", error);
   }
 }
 
-function showApp(user) {
+function saveUserSession(user, mode) {
+  setStoredSession({ mode, user });
+}
+
+function showApp(user, mode = "authenticated") {
   const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.email || "Listener";
   const nameTarget = profileButton.querySelector("span");
   if (nameTarget) nameTarget.textContent = name;
 
+  const wasAuthenticated = document.body.classList.contains("authenticated");
   document.body.classList.remove("auth-pending");
   document.body.classList.add("authenticated");
   authScreen.hidden = true;
-  window.dispatchEvent(new CustomEvent("music:authenticated", { detail: { user } }));
+  logAuth("app-opened", { mode, userId: user?.id || user?.email || "guest" });
+  if (!wasAuthenticated) {
+    window.dispatchEvent(new CustomEvent("music:authenticated", { detail: { user, mode } }));
+  }
 }
 
 async function initializeSupabase() {
-  const [config] = await Promise.allSettled([fetchAuthConfig(), loadSupabaseClient()]);
+  if (supabase) return supabase;
+  if (supabasePromise) return supabasePromise;
 
-  if (config.status !== "fulfilled" || !window.supabase?.createClient) {
-    throw config.status === "rejected"
-      ? config.reason
-      : new Error("The authentication client is not available.");
+  supabasePromise = (async () => {
+    const [config] = await Promise.all([Promise.resolve(getAuthConfig()), loadSupabaseClient()]);
+    if (!window.supabase?.createClient) throw new Error("The authentication client is not available.");
+
+    supabase = window.supabase.createClient(config.url, config.publishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storage: window.localStorage,
+        storageKey: "pulse-music-auth",
+      },
+    });
+
+    return supabase;
+  })();
+
+  try {
+    return await supabasePromise;
+  } catch (error) {
+    supabasePromise = null;
+    throw error;
   }
+}
 
-  supabase = window.supabase.createClient(config.value.url, config.value.publishableKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: window.localStorage,
-      storageKey: "pulse-music-auth",
-    },
+function subscribeToAuth(client) {
+  if (authSubscription) return;
+
+  const { data } = client.auth.onAuthStateChange((event, session) => {
+    logAuth("state-changed", { event, hasSession: Boolean(session?.user) });
+    if (guestAccess || !session?.user) return;
+    saveUserSession(session.user, "authenticated");
+    showApp(session.user);
   });
-
-  return supabase;
+  authSubscription = data.subscription;
 }
 
 async function initializeAuth() {
+  const storedSession = getStoredSession();
+  if (storedSession?.mode === "guest" && storedSession.user) {
+    guestAccess = true;
+    showApp(storedSession.user, "guest");
+    return;
+  }
+
   try {
-    const storedSession = getStoredSession();
-    if (storedSession?.user) {
-      showApp(storedSession.user);
-      return;
-    }
-
     const client = await initializeSupabase();
+    const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error_description") || params.get("error");
+    if (oauthError) throw new Error(oauthError);
 
-    if (guestAccess) return;
-
-    const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.has("error_description")) {
-      throw new Error(searchParams.get("error_description"));
-    }
-
-    if (searchParams.has("code")) {
-      const { error } = await client.auth.exchangeCodeForSession(window.location.href);
+    const code = params.get("code");
+    if (code) {
+      logAuth("google-callback-received");
+      const { data, error } = await client.auth.exchangeCodeForSession(code);
       if (error) throw error;
       clearOAuthUrl();
+      if (data.session?.user) {
+        saveUserSession(data.session.user, "authenticated");
+        showApp(data.session.user);
+        return;
+      }
     }
 
-    const { data: { session }, error: sessionError } = await client.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    if (guestAccess) return;
+    const { data: { session }, error } = await client.auth.getSession();
+    if (error) throw error;
+    subscribeToAuth(client);
 
     if (session?.user) {
-      setStoredSession(session);
+      saveUserSession(session.user, "authenticated");
       showApp(session.user);
       return;
     }
 
     authScreen.hidden = false;
     document.body.classList.add("auth-pending");
-
-    client.auth.onAuthStateChange((_event, sessionState) => {
-      if (sessionState?.user && !guestAccess) {
-        setStoredSession(sessionState);
-        showApp(sessionState.user);
-      }
-    });
+    logAuth("ready-for-sign-in");
   } catch (error) {
-    if (guestAccess) return;
-
+    authError("initialization-failed", error);
+    clearOAuthUrl();
     authScreen.hidden = false;
     document.body.classList.add("auth-pending");
-    clearOAuthUrl();
-    setMessage(`Authentication is not ready yet: ${error.message || "check the Supabase setup."}`, true);
+    setMessage(error.message || "Sign-in is unavailable. You can still choose Skip login.", true);
+  } finally {
+    setBusy(false);
   }
 }
 
-async function applySession(session) {
-  if (!session) {
-    throw new Error("Authentication succeeded but no session was returned.");
-  }
+function validateCredentials() {
+  const email = authEmail.value.trim().toLowerCase();
+  const password = authPassword.value;
+  const name = authName.value.trim();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  setStoredSession(session);
+  if (isRegistering && name.length < 2) throw new Error("Please enter a name with at least 2 characters.");
+  if (!emailPattern.test(email)) throw new Error("Please enter a valid email address.");
+  if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+  return { email, password, name };
+}
 
-  if (supabase && session.access_token && session.refresh_token) {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-
-    if (error) throw error;
-    if (data.session?.user) {
-      showApp(data.session.user);
-      return;
-    }
-  }
-
-  if (session.user) {
-    showApp(session.user);
-    return;
-  }
-
-  throw new Error("Authentication succeeded but no user was returned.");
+async function completeAuthentication(session) {
+  if (!session?.user) throw new Error("Authentication succeeded but no user session was returned.");
+  guestAccess = false;
+  saveUserSession(session.user, "authenticated");
+  showApp(session.user);
 }
 
 async function startGuestMode() {
+  const guestUser = {
+    id: "guest",
+    email: "guest@pulse.local",
+    user_metadata: { display_name: "Guest" },
+  };
+
   guestAccess = true;
   setBusy(false);
   setMessage();
   clearOAuthUrl();
-  showApp({
-    email: "guest@pulse.local",
-    user_metadata: { display_name: "Guest" },
-  });
+  saveUserSession(guestUser, "guest");
+  logAuth("guest-login");
+  showApp(guestUser, "guest");
 }
 
-authSwitch.addEventListener("click", () => setMode(!isRegistering));
+authSwitch.addEventListener("click", () => {
+  logAuth("mode-changed", { mode: isRegistering ? "login" : "register" });
+  setMode(!isRegistering);
+});
 
 authSkip.addEventListener("click", startGuestMode);
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
   setBusy(true);
   setMessage();
 
   try {
-    const password = authPassword.value;
-    const endpoint = isRegistering ? "register" : "login";
-    const body = isRegistering
-      ? { username: authName.value.trim(), email: authEmail.value.trim(), password }
-      : { username: authEmail.value.trim(), password };
+    const { email, password, name } = validateCredentials();
+    const client = await initializeSupabase();
+    subscribeToAuth(client);
+    logAuth(isRegistering ? "registration-started" : "login-started", { email });
 
-    const response = await fetch(`${AUTH_API_BASE_URL}/auth/${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const payload = await response.json();
+    const result = isRegistering
+      ? await client.auth.signUp({
+          email,
+          password,
+          options: { data: { username: name, display_name: name } },
+        })
+      : await client.auth.signInWithPassword({ email, password });
 
-    if (!response.ok) {
-      throw new Error(payload.error?.message || "Could not authenticate. Please try again.");
+    if (result.error) throw result.error;
+    if (result.data.session?.user) {
+      await completeAuthentication(result.data.session);
+      return;
     }
 
-    await applySession(payload.data);
+    if (isRegistering) {
+      throw new Error("Account created. Confirm your email, then sign in to continue.");
+    }
+    throw new Error("Sign-in did not return a session. Please try again.");
   } catch (error) {
+    authError(isRegistering ? "registration-failed" : "login-failed", error);
     setMessage(error.message || "Could not authenticate. Please try again.", true);
   } finally {
     setBusy(false);
@@ -324,32 +358,35 @@ googleSignIn.addEventListener("click", async () => {
   setMessage();
 
   try {
-    if (!supabase) {
-      await initializeSupabase();
-    }
-
-    const { error } = await supabase.auth.signInWithOAuth({
+    const client = await initializeSupabase();
+    subscribeToAuth(client);
+    logAuth("google-login-started");
+    const { error } = await client.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: window.location.origin + window.location.pathname,
         queryParams: { prompt: "select_account" },
       },
     });
-
     if (error) throw error;
   } catch (error) {
+    authError("google-login-failed", error);
     setBusy(false);
-    setMessage(error.message || "Google sign-in could not start.", true);
+    setMessage(error.message || "Google sign-in could not start. Please try again or choose Skip login.", true);
   }
 });
 
 profileButton.addEventListener("click", async () => {
   if (!document.body.classList.contains("authenticated")) return;
 
+  logAuth("sign-out");
+  guestAccess = false;
   setStoredSession(null);
 
-  if (supabase) {
-    await supabase.auth.signOut();
+  try {
+    if (supabase) await supabase.auth.signOut();
+  } catch (error) {
+    authError("sign-out-failed", error);
   }
 
   window.location.reload();
