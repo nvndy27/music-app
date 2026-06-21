@@ -15,13 +15,17 @@ const createPlaylistButton = document.querySelector('[aria-label="Create playlis
 const progressInput = document.querySelector("#progressInput");
 const elapsedTime = document.querySelector("#elapsedTime");
 const durationTime = document.querySelector("#durationTime");
+const volumeInput = document.querySelector(".volume-wrap input");
 
 let tracks = [];
 let currentMood = "all";
 let currentTrackId = null;
 let isPlaying = false;
 let progressSeconds = 0;
-let timerId = null;
+const audio = new Audio();
+
+audio.preload = "metadata";
+audio.volume = Number(volumeInput?.value || 72) / 100;
 
 function isGuestSession() {
   try {
@@ -148,6 +152,9 @@ async function loadTracks() {
 }
 
 function resetPlayer() {
+  audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
   playerTitle.textContent = "No track selected";
   playerArtist.textContent = "Music library";
   durationTime.textContent = "0:00";
@@ -175,10 +182,20 @@ function setCurrentTrack(trackId, shouldPlay = true) {
   playerCover.className = "mini-cover cover-gradient-2";
   applyArtwork(playerCover, track);
 
+  const audioUrl = resolveMediaUrl(track.audioUrl || track.audio_url);
+  if (!audioUrl) {
+    console.error("Track has no playable audio URL:", track);
+    return;
+  }
+
+  audio.pause();
+  audio.src = audioUrl;
+  audio.load();
+
   if (shouldPlay) {
-    isPlaying = true;
-    startTimer();
-    registerPlay(track.id);
+    playCurrentTrack(track);
+  } else {
+    isPlaying = false;
   }
 
   setPlayIcons();
@@ -195,41 +212,25 @@ async function registerPlay(trackId) {
   }
 }
 
-function startTimer() {
-  window.clearInterval(timerId);
-  timerId = window.setInterval(() => {
-    if (!isPlaying) return;
+async function playCurrentTrack(track = getCurrentTrack()) {
+  if (!track) return;
 
-    const track = getCurrentTrack();
-
-    if (!track) {
-      return;
-    }
-
-    const duration = Number(track.duration ?? track.durationSeconds) || 0;
-    progressSeconds = Math.min(progressSeconds + 1, duration);
-    progressInput.value = duration ? Math.round((progressSeconds / duration) * 100) : 0;
-    elapsedTime.textContent = formatTime(progressSeconds);
-
-    if (duration && progressSeconds >= duration) {
-      const currentIndex = tracks.findIndex((item) => item.id === currentTrackId);
-      const nextTrack = tracks[(currentIndex + 1) % tracks.length];
-      setCurrentTrack(nextTrack.id, true);
-    }
-  }, 1000);
+  try {
+    await audio.play();
+    registerPlay(track.id);
+  } catch (error) {
+    console.error("Unable to play audio:", error);
+    isPlaying = false;
+    setPlayIcons();
+  }
 }
 
 function togglePlay() {
-  if (!getCurrentTrack()) {
-    return;
-  }
+  const track = getCurrentTrack();
+  if (!track) return;
 
-  isPlaying = !isPlaying;
-  setPlayIcons();
-
-  if (isPlaying) {
-    startTimer();
-  }
+  if (audio.paused) playCurrentTrack(track);
+  else audio.pause();
 }
 
 function matchesQuery(track, query) {
@@ -375,6 +376,45 @@ progressInput.addEventListener("input", () => {
   const duration = Number(track.duration ?? track.durationSeconds) || 0;
   progressSeconds = Math.round((Number(progressInput.value) / 100) * duration);
   elapsedTime.textContent = formatTime(progressSeconds);
+  if (Number.isFinite(audio.duration)) audio.currentTime = progressSeconds;
+});
+
+volumeInput?.addEventListener("input", () => {
+  audio.volume = Number(volumeInput.value) / 100;
+});
+
+audio.addEventListener("loadedmetadata", () => {
+  const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+  durationTime.textContent = formatTime(duration);
+});
+
+audio.addEventListener("timeupdate", () => {
+  const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+  progressSeconds = audio.currentTime || 0;
+  progressInput.value = duration ? Math.round((progressSeconds / duration) * 100) : 0;
+  elapsedTime.textContent = formatTime(progressSeconds);
+});
+
+audio.addEventListener("play", () => {
+  isPlaying = true;
+  setPlayIcons();
+});
+
+audio.addEventListener("pause", () => {
+  isPlaying = false;
+  setPlayIcons();
+});
+
+audio.addEventListener("ended", () => {
+  const currentIndex = tracks.findIndex((item) => item.id === currentTrackId);
+  const nextTrack = tracks[(currentIndex + 1) % tracks.length];
+  if (nextTrack) setCurrentTrack(nextTrack.id, true);
+});
+
+audio.addEventListener("error", () => {
+  console.error("Audio file could not be loaded:", audio.src, audio.error);
+  isPlaying = false;
+  setPlayIcons();
 });
 
 if (document.body.classList.contains("authenticated")) {
