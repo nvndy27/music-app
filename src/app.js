@@ -1,4 +1,4 @@
-const API_BASE_URL = window.MUSIC_API_BASE_URL || "http://localhost:4000/api";
+const API_BASE_URL = window.MUSIC_API_BASE_URL || "https://music-app-backend-cfue.onrender.com/api";
 
 const albumGrid = document.querySelector("#albumGrid");
 const trackTable = document.querySelector("#trackTable");

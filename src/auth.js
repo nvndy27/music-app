@@ -1,4 +1,4 @@
-const AUTH_API_BASE_URL = window.MUSIC_API_BASE_URL || "http://localhost:4000/api";
+const AUTH_API_BASE_URL = window.MUSIC_API_BASE_URL || "https://music-app-backend-cfue.onrender.com/api";
 
 const authScreen = document.querySelector("#authScreen");
 const authForm = document.querySelector("#authForm");
@@ -79,7 +79,7 @@ async function initializeAuth() {
       if (sessionState?.user) showAuthenticated(sessionState.user);
     });
   } catch (error) {
-    setMessage("Authentication is not ready yet. Check the Supabase setup.", true);
+    setMessage(`Authentication is not ready yet: ${error.message || "check the Supabase setup."}`, true);
   }
 }
 
@@ -121,7 +121,10 @@ googleSignIn.addEventListener("click", async () => {
   setBusy(true);
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: window.location.origin + window.location.pathname },
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      queryParams: { prompt: "select_account" },
+    },
   });
 
   if (error) {
