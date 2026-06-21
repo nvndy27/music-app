@@ -22,6 +22,18 @@ const fixes = [
     from: { artist: "alone with you", title: "[ LONOWN , Baby Jane ] Ultra Slowed & Reverb" },
     to: { artist: "LONOWN, Baby Jane", title: "alone with you (Ultra Slowed & Reverb)" },
   },
+  {
+    from: { artist: "Local library", title: "Versatile (Hardstylish Remix Slowed)" },
+    to: { artist: "L.P. Rhythm", title: "Versatile (Hardstylish Remix) (Slowed)" },
+  },
+  {
+    from: { artist: "Local library", title: "MONTAGEM SETHRON (Ultra Slowed)" },
+    to: { artist: "SASORIIXPP, Zhanbxqq, DJ Javi26", title: "MONTAGEM SETHRON (Ultra Slowed)" },
+  },
+  {
+    from: { artist: "Local library", title: "MONTAGEM ELDER (SUPER SLOWED) [YUTA x MAKI]" },
+    to: { artist: "DJ Samir, Nulteex, John Bis.T, RXDXVIL", title: "MONTAGEM ELDER (Super Slowed) [YUTA x MAKI]" },
+  },
 ];
 
 async function request(url, options = {}) {
