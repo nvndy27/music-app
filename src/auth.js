@@ -15,12 +15,14 @@ const authPassword = document.querySelector("#authPassword");
 const authEmailLabel = authEmail.closest(".auth-field")?.querySelector("span");
 const authSubmit = document.querySelector("#authSubmit");
 const authSwitch = document.querySelector("#authSwitch");
+const authSkip = document.querySelector("#authSkip");
 const authMessage = document.querySelector("#authMessage");
 const googleSignIn = document.querySelector("#googleSignIn");
 const profileButton = document.querySelector("#profileButton");
 
 let supabase = null;
 let isRegistering = false;
+let guestAccess = false;
 
 function loadScript(source, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -60,6 +62,17 @@ async function loadSupabaseClient() {
   }
 
   throw lastError || new Error("Could not load the authentication client.");
+}
+
+async function fetchAuthConfig() {
+  const response = await fetch(`${AUTH_API_BASE_URL}/auth/config`);
+  const payload = await response.json();
+
+  if (!response.ok || !payload.data?.url || !payload.data?.publishableKey) {
+    throw new Error(payload.message || "Supabase Auth is not configured.");
+  }
+
+  return payload.data;
 }
 
 function setMessage(message = "", isError = false) {
@@ -123,8 +136,30 @@ function setMode(registering) {
   setMessage();
 }
 
-function showAuthenticated(user) {
-  const name = user.user_metadata?.display_name || user.user_metadata?.full_name || user.email || "Listener";
+function getStoredSession() {
+  try {
+    const raw = window.localStorage.getItem("pulse-music-auth-session");
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function setStoredSession(session) {
+  try {
+    if (!session) {
+      window.localStorage.removeItem("pulse-music-auth-session");
+      return;
+    }
+
+    window.localStorage.setItem("pulse-music-auth-session", JSON.stringify(session));
+  } catch (error) {
+    // Storage is best-effort only.
+  }
+}
+
+function showApp(user) {
+  const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.email || "Listener";
   const nameTarget = profileButton.querySelector("span");
   if (nameTarget) nameTarget.textContent = name;
 
@@ -134,54 +169,74 @@ function showAuthenticated(user) {
   window.dispatchEvent(new CustomEvent("music:authenticated", { detail: { user } }));
 }
 
+async function initializeSupabase() {
+  const [config] = await Promise.allSettled([fetchAuthConfig(), loadSupabaseClient()]);
+
+  if (config.status !== "fulfilled" || !window.supabase?.createClient) {
+    throw config.status === "rejected"
+      ? config.reason
+      : new Error("The authentication client is not available.");
+  }
+
+  supabase = window.supabase.createClient(config.value.url, config.value.publishableKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage,
+      storageKey: "pulse-music-auth",
+    },
+  });
+
+  return supabase;
+}
+
 async function initializeAuth() {
   try {
-    const [response] = await Promise.all([
-      fetch(`${AUTH_API_BASE_URL}/auth/config`),
-      loadSupabaseClient(),
-    ]);
-    const payload = await response.json();
-
-    if (!response.ok || !payload.data?.url || !payload.data?.publishableKey) {
-      throw new Error(payload.message || "Supabase Auth is not configured.");
+    const storedSession = getStoredSession();
+    if (storedSession?.user) {
+      showApp(storedSession.user);
+      return;
     }
 
-    supabase = window.supabase.createClient(payload.data.url, payload.data.publishableKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage,
-        storageKey: "pulse-music-auth",
-      },
-    });
+    const client = await initializeSupabase();
+
+    if (guestAccess) return;
+
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.has("error_description")) {
       throw new Error(searchParams.get("error_description"));
     }
 
     if (searchParams.has("code")) {
-      const { error } = await supabase.auth.exchangeCodeForSession(window.location.href);
+      const { error } = await client.auth.exchangeCodeForSession(window.location.href);
       if (error) throw error;
       clearOAuthUrl();
     }
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await client.auth.getSession();
     if (sessionError) throw sessionError;
 
+    if (guestAccess) return;
+
     if (session?.user) {
-      showAuthenticated(session.user);
-    } else {
-      authScreen.hidden = false;
-      document.body.classList.add("auth-pending");
+      setStoredSession(session);
+      showApp(session.user);
+      return;
     }
 
-    supabase.auth.onAuthStateChange((_event, sessionState) => {
-      if (sessionState?.user) {
-        showAuthenticated(sessionState.user);
+    authScreen.hidden = false;
+    document.body.classList.add("auth-pending");
+
+    client.auth.onAuthStateChange((_event, sessionState) => {
+      if (sessionState?.user && !guestAccess) {
+        setStoredSession(sessionState);
+        showApp(sessionState.user);
       }
     });
   } catch (error) {
+    if (guestAccess) return;
+
     authScreen.hidden = false;
     document.body.classList.add("auth-pending");
     clearOAuthUrl();
@@ -189,11 +244,51 @@ async function initializeAuth() {
   }
 }
 
+async function applySession(session) {
+  if (!session) {
+    throw new Error("Authentication succeeded but no session was returned.");
+  }
+
+  setStoredSession(session);
+
+  if (supabase && session.access_token && session.refresh_token) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+
+    if (error) throw error;
+    if (data.session?.user) {
+      showApp(data.session.user);
+      return;
+    }
+  }
+
+  if (session.user) {
+    showApp(session.user);
+    return;
+  }
+
+  throw new Error("Authentication succeeded but no user was returned.");
+}
+
+async function startGuestMode() {
+  guestAccess = true;
+  setBusy(false);
+  setMessage();
+  clearOAuthUrl();
+  showApp({
+    email: "guest@pulse.local",
+    user_metadata: { display_name: "Guest" },
+  });
+}
+
 authSwitch.addEventListener("click", () => setMode(!isRegistering));
+
+authSkip.addEventListener("click", startGuestMode);
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!supabase) return setMessage("Authentication is not available yet.", true);
 
   setBusy(true);
   setMessage();
@@ -216,18 +311,7 @@ authForm.addEventListener("submit", async (event) => {
       throw new Error(payload.error?.message || "Could not authenticate. Please try again.");
     }
 
-    const session = payload.data;
-    if (!session?.access_token || !session?.refresh_token) {
-      throw new Error("Authentication succeeded but no session was returned.");
-    }
-
-    const { data, error } = await supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token,
-    });
-
-    if (error) throw error;
-    if (data.session?.user) showAuthenticated(data.session.user);
+    await applySession(payload.data);
   } catch (error) {
     setMessage(error.message || "Could not authenticate. Please try again.", true);
   } finally {
@@ -236,12 +320,14 @@ authForm.addEventListener("submit", async (event) => {
 });
 
 googleSignIn.addEventListener("click", async () => {
-  if (!supabase) return setMessage("Authentication is not available yet.", true);
-
   setBusy(true);
   setMessage();
 
   try {
+    if (!supabase) {
+      await initializeSupabase();
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -258,8 +344,14 @@ googleSignIn.addEventListener("click", async () => {
 });
 
 profileButton.addEventListener("click", async () => {
-  if (!supabase || !document.body.classList.contains("authenticated")) return;
-  await supabase.auth.signOut();
+  if (!document.body.classList.contains("authenticated")) return;
+
+  setStoredSession(null);
+
+  if (supabase) {
+    await supabase.auth.signOut();
+  }
+
   window.location.reload();
 });
 

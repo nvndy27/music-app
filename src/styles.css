@@ -173,6 +173,10 @@ body {
   text-underline-offset: 3px;
 }
 
+.auth-skip {
+  margin-top: 12px;
+}
+
 button,
 input {
   font: inherit;
