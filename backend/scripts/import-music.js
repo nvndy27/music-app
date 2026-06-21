@@ -42,6 +42,15 @@ function cleanName(value) {
 
 function deriveTrackInfo(filename) {
   const cleaned = cleanName(path.basename(filename, path.extname(filename)));
+  const titleArtistPattern = cleaned.match(/^(.+?)\s+-\s+\[\s*(.+?)\s*\]\s*(.*)$/);
+
+  if (titleArtistPattern) {
+    const [, title, artist, suffix] = titleArtistPattern;
+    return {
+      artist: cleanName(artist) || "Local library",
+      title: cleanName(`${title} ${suffix}`) || cleaned,
+    };
+  }
   const parts = cleaned.split(/\s+-\s+/);
 
   if (parts.length >= 2) {
