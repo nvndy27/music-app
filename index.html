@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulse Music</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M3 10.7 12 3l9 7.7V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10.7Z" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <path d="m21 21-4.35-4.35M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z" />
+      </symbol>
+      <symbol id="icon-library" viewBox="0 0 24 24">
+        <path d="M4 4h4v16H4V4Zm6 0h4v16h-4V4Zm6 1.5 3.8-1 4.2 15.2-3.9 1L16 5.5Z" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7L8 5Z" />
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24">
+        <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" />
+      </symbol>
+      <symbol id="icon-prev" viewBox="0 0 24 24">
+        <path d="M6 5h2v14H6V5Zm3 7 10-7v14L9 12Z" />
+      </symbol>
+      <symbol id="icon-next" viewBox="0 0 24 24">
+        <path d="M16 5h2v14h-2V5ZM5 19V5l10 7-10 7Z" />
+      </symbol>
+      <symbol id="icon-heart" viewBox="0 0 24 24">
+        <path d="M12 21s-7-4.35-9.3-8.42C.52 8.72 2.7 4 7.05 4A5.2 5.2 0 0 1 12 7.04 5.2 5.2 0 0 1 16.95 4c4.35 0 6.53 4.72 4.35 8.58C19 16.65 12 21 12 21Z" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M11 5h2v14h-2V5Zm-6 6h14v2H5v-2Z" />
+      </symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24">
+        <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-9 9a9 9 0 0 1 18 0H3Z" />
+      </symbol>
+      <symbol id="icon-volume" viewBox="0 0 24 24">
+        <path d="M4 9v6h4l5 4V5L8 9H4Zm12.4-1.7a6 6 0 0 1 0 9.4l1.4 1.4a8 8 0 0 0 0-12.2l-1.4 1.4Z" />
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24">
+        <path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Zm1-16h-2v7l5 3 1-1.7-4-2.3V6Z" />
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <a class="brand" href="#" aria-label="Pulse Music">
+          <span class="brand-mark"></span>
+          <span>Pulse</span>
+        </a>
+
+        <nav class="nav-list">
+          <a class="nav-link active" href="#">
+            <svg><use href="#icon-home"></use></svg>
+            Home
+          </a>
+          <a class="nav-link" href="#">
+            <svg><use href="#icon-search"></use></svg>
+            Search
+          </a>
+          <a class="nav-link" href="#">
+            <svg><use href="#icon-library"></use></svg>
+            Library
+          </a>
+        </nav>
+
+        <div class="library-box">
+          <div class="library-head">
+            <span>Your Library</span>
+            <button class="icon-button" type="button" aria-label="Create playlist">
+              <svg><use href="#icon-plus"></use></svg>
+            </button>
+          </div>
+          <button class="playlist-link active" type="button">Daily Pulse</button>
+          <button class="playlist-link" type="button">Late Night Drive</button>
+          <button class="playlist-link" type="button">Focus Room</button>
+          <button class="playlist-link" type="button">Indie Radar</button>
+        </div>
+      </aside>
+
+      <div class="content-wrap">
+        <header class="topbar">
+          <div class="history-actions">
+            <button class="icon-button" type="button" aria-label="Back">
+              <span aria-hidden="true">&#8249;</span>
+            </button>
+            <button class="icon-button" type="button" aria-label="Forward">
+              <span aria-hidden="true">&#8250;</span>
+            </button>
+          </div>
+
+          <label class="search-field">
+            <svg><use href="#icon-search"></use></svg>
+            <input id="searchInput" type="search" placeholder="What do you want to play?" autocomplete="off" />
+          </label>
+
+          <button class="profile-button" type="button">
+            <svg><use href="#icon-user"></use></svg>
+            <span>Duy</span>
+          </button>
+        </header>
+
+        <main class="main-content">
+          <section class="hero-panel" aria-labelledby="heroTitle">
+            <div class="hero-cover cover-gradient-1"></div>
+            <div class="hero-copy">
+              <span class="eyebrow">Playlist</span>
+              <h1 id="heroTitle">Daily Pulse</h1>
+              <p>Lo-fi pop, electronic textures, and warm night-drive tracks.</p>
+              <div class="hero-actions">
+                <button class="play-cta" id="heroPlay" type="button" aria-label="Play Daily Pulse">
+                  <svg><use href="#icon-play"></use></svg>
+                </button>
+                <button class="pill-button" type="button">Follow</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="quick-grid" aria-label="Quick picks">
+            <button class="quick-card" type="button" data-track-index="0">
+              <span class="mini-cover cover-gradient-2"></span>
+              <span>Midnight Signal</span>
+            </button>
+            <button class="quick-card" type="button" data-track-index="1">
+              <span class="mini-cover cover-gradient-3"></span>
+              <span>Glass City</span>
+            </button>
+            <button class="quick-card" type="button" data-track-index="2">
+              <span class="mini-cover cover-gradient-4"></span>
+              <span>Velvet Static</span>
+            </button>
+            <button class="quick-card" type="button" data-track-index="3">
+              <span class="mini-cover cover-gradient-5"></span>
+              <span>Ocean Avenue</span>
+            </button>
+          </section>
+
+          <section class="section-block" aria-labelledby="moodTitle">
+            <div class="section-head">
+              <h2 id="moodTitle">Made for tonight</h2>
+              <div class="filter-pills" role="tablist" aria-label="Mood filters">
+                <button class="filter-pill active" type="button" data-filter="all">All</button>
+                <button class="filter-pill" type="button" data-filter="focus">Focus</button>
+                <button class="filter-pill" type="button" data-filter="drive">Drive</button>
+                <button class="filter-pill" type="button" data-filter="chill">Chill</button>
+              </div>
+            </div>
+            <div class="album-grid" id="albumGrid"></div>
+          </section>
+
+          <section class="section-block track-section" aria-labelledby="trackTitle">
+            <div class="section-head">
+              <h2 id="trackTitle">Popular tracks</h2>
+              <button class="text-button" type="button">Show all</button>
+            </div>
+            <div class="track-table" id="trackTable">
+              <div class="track-row table-head" aria-hidden="true">
+                <span>#</span>
+                <span>Title</span>
+                <span>Album</span>
+                <span class="time-head"><svg><use href="#icon-clock"></use></svg></span>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <footer class="player-bar" aria-label="Now playing">
+      <div class="now-track">
+        <div class="mini-cover cover-gradient-2" id="playerCover"></div>
+        <div>
+          <strong id="playerTitle">Midnight Signal</strong>
+          <span id="playerArtist">NOVA & Elle</span>
+        </div>
+        <button class="like-button" id="likeButton" type="button" aria-label="Save track">
+          <svg><use href="#icon-heart"></use></svg>
+        </button>
+      </div>
+
+      <div class="player-center">
+        <div class="player-controls">
+          <button class="control-button" type="button" aria-label="Previous track">
+            <svg><use href="#icon-prev"></use></svg>
+          </button>
+          <button class="play-control" id="playerPlay" type="button" aria-label="Play">
+            <svg><use href="#icon-play"></use></svg>
+          </button>
+          <button class="control-button" type="button" aria-label="Next track">
+            <svg><use href="#icon-next"></use></svg>
+          </button>
+        </div>
+        <div class="progress-line">
+          <span id="elapsedTime">0:00</span>
+          <input id="progressInput" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+          <span id="durationTime">3:42</span>
+        </div>
+      </div>
+
+      <div class="volume-wrap">
+        <svg><use href="#icon-volume"></use></svg>
+        <input type="range" min="0" max="100" value="72" aria-label="Volume" />
+      </div>
+    </footer>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <a class="active" href="#"><svg><use href="#icon-home"></use></svg><span>Home</span></a>
+      <a href="#"><svg><use href="#icon-search"></use></svg><span>Search</span></a>
+      <a href="#"><svg><use href="#icon-library"></use></svg><span>Library</span></a>
+    </nav>
+
+    <script src="src/app.js"></script>
+  </body>
+</html>
