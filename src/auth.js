@@ -91,8 +91,6 @@ function showAuthenticated(user) {
 }
 
 async function initializeAuth() {
-  setBusy(true);
-
   try {
     const response = await fetch(`${AUTH_API_BASE_URL}/auth/config`);
     const payload = await response.json();
@@ -133,7 +131,6 @@ async function initializeAuth() {
     } else {
       authScreen.hidden = false;
       document.body.classList.add("auth-pending");
-      setBusy(false);
     }
 
     supabase.auth.onAuthStateChange((_event, sessionState) => {
@@ -144,7 +141,6 @@ async function initializeAuth() {
   } catch (error) {
     authScreen.hidden = false;
     document.body.classList.add("auth-pending");
-    setBusy(false);
     clearOAuthUrl();
     setMessage(`Authentication is not ready yet: ${error.message || "check the Supabase setup."}`, true);
   }
@@ -225,4 +221,5 @@ profileButton.addEventListener("click", async () => {
 });
 
 setMode(false);
+setBusy(false);
 initializeAuth();
