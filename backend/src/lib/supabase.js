@@ -75,6 +75,65 @@ async function checkSupabaseConnection() {
   };
 }
 
+async function listSupabaseUsers() {
+  const users = [];
+  let page = 1;
+  const perPage = 1000;
+
+  while (true) {
+    const data = await supabaseFetch("/auth/v1/admin/users", {
+      params: {
+        page: String(page),
+        per_page: String(perPage),
+      },
+    });
+
+    const rows = Array.isArray(data?.users) ? data.users : [];
+    users.push(...rows);
+
+    if (rows.length < perPage) break;
+    page += 1;
+  }
+
+  return users;
+}
+
+async function createSupabaseUser({ email, password, username }) {
+  return supabaseFetch("/auth/v1/admin/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        username,
+        display_name: username,
+      },
+    }),
+  });
+}
+
+async function signInSupabaseUser(email, password) {
+  const response = await fetch(`${env.supabaseUrl.replace(/\/$/, "")}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      apikey: env.supabasePublishableKey || env.supabaseServiceRoleKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.error_description || data?.msg || data?.message || "Supabase sign-in failed", data);
+  }
+
+  return data;
+}
+
 async function getSupabaseUser(accessToken) {
   return supabaseFetch("/auth/v1/user", {
     headers: {
@@ -87,5 +146,8 @@ module.exports = {
   supabaseFetch,
   getPublicStorageUrl,
   checkSupabaseConnection,
+  listSupabaseUsers,
+  createSupabaseUser,
+  signInSupabaseUser,
   getSupabaseUser,
 };

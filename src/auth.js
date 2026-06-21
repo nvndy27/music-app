@@ -8,6 +8,7 @@ const authNameField = document.querySelector("#authNameField");
 const authName = document.querySelector("#authName");
 const authEmail = document.querySelector("#authEmail");
 const authPassword = document.querySelector("#authPassword");
+const authEmailLabel = authEmail.closest(".auth-field")?.querySelector("span");
 const authSubmit = document.querySelector("#authSubmit");
 const authSwitch = document.querySelector("#authSwitch");
 const authMessage = document.querySelector("#authMessage");
@@ -65,6 +66,10 @@ function setMode(registering) {
   authNameField.hidden = !registering;
   authName.required = registering;
   authPassword.autocomplete = registering ? "new-password" : "current-password";
+  authEmail.type = registering ? "email" : "text";
+  authEmail.autocomplete = registering ? "email" : "username";
+  authEmail.placeholder = registering ? "you@example.com" : "username";
+  if (authEmailLabel) authEmailLabel.textContent = registering ? "Email" : "Username";
   authTitle.textContent = registering ? "Create your account" : "Welcome back";
   authCopy.textContent = registering
     ? "Save your library and keep listening across devices."
@@ -155,26 +160,35 @@ authForm.addEventListener("submit", async (event) => {
   setMessage();
 
   try {
-    const email = authEmail.value.trim();
     const password = authPassword.value;
-    const result = isRegistering
-      ? await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { display_name: authName.value.trim() } },
-        })
-      : await supabase.auth.signInWithPassword({ email, password });
+    const endpoint = isRegistering ? "register" : "login";
+    const body = isRegistering
+      ? { username: authName.value.trim(), email: authEmail.value.trim(), password }
+      : { username: authEmail.value.trim(), password };
 
-    if (result.error) throw result.error;
+    const response = await fetch(`${AUTH_API_BASE_URL}/auth/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json();
 
-    if (result.data.session?.user) {
-      showAuthenticated(result.data.session.user);
-      return;
+    if (!response.ok) {
+      throw new Error(payload.error?.message || "Could not authenticate. Please try again.");
     }
 
-    if (isRegistering && !result.data.session) {
-      setMessage("Check your email to confirm the new account, then sign in.");
+    const session = payload.data;
+    if (!session?.access_token || !session?.refresh_token) {
+      throw new Error("Authentication succeeded but no session was returned.");
     }
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+
+    if (error) throw error;
+    if (data.session?.user) showAuthenticated(data.session.user);
   } catch (error) {
     setMessage(error.message || "Could not authenticate. Please try again.", true);
   } finally {
